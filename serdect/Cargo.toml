@@ -13,7 +13,7 @@ categories = ["cryptography", "encoding", "no-std", "parsing"]
 keywords = ["crypto", "constant-time", "serde"]
 readme = "README.md"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.89"
 
 [dependencies]
 base16ct = { version = "1", default-features = false }
