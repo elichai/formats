@@ -20,8 +20,20 @@ rust-version = "1.85"
 [features]
 alloc = []
 
+# Used only for runtime CPU feature detection on x86. `no_std`, MSRV 1.85, and
+# dependency-free on x86 itself.
+[target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
+cpufeatures = "0.3"
+
 [dev-dependencies]
 proptest = { version = "1.6", default-features = false, features = ["std"] }
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = [
+    'cfg(docsrs)',
+    'cfg(base16ct_backend, values("soft", "x86-ssse3", "x86-avx2"))',
+]
 
 [package.metadata.docs.rs]
 all-features = true
