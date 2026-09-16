@@ -21,10 +21,15 @@ Supports `no_std` environments and avoids heap allocations in the core API
 ## Backends
 
 On `x86`/`x86_64` the widest supported SIMD tier is selected at runtime via
-[`cpufeatures`], falling back to a portable implementation. On `aarch64` the
-NEON backend is used whenever the `neon` target feature is enabled, which it is
-by default, so no detection is involved there. No configuration is needed in
-either case.
+[`cpufeatures`], falling back to a portable implementation.
+
+On `aarch64` and `wasm32` the choice is made at compile time from the target
+features, with no detection involved: `neon` is enabled by default on
+`aarch64`, and WebAssembly has no runtime feature query, so `simd128` support
+is a property of how the module was built. Enable it with
+`-Ctarget-feature=+simd128`.
+
+No configuration is needed in any of these cases.
 
 The lookup tables used by the SIMD backends are held in registers rather than
 memory, so they introduce no data-dependent memory access and the crate's
@@ -38,8 +43,8 @@ configuration flag:
 - `x86-ssse3`: SSSE3. Requires the `ssse3` target feature.
 - `x86-avx2`: AVX2. Requires the `avx2` target feature.
 
-There is no value for NEON: `aarch64` has a single tier, so `soft` against the
-default is already the only choice available.
+There are no values for NEON or `simd128`: those architectures have a single
+tier each, so `soft` against the default is already the only choice available.
 
 Pinning a backend that requires an unavailable target feature is a compile
 error rather than a runtime fault. Set the flag through `RUSTFLAGS`:

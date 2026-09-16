@@ -51,6 +51,15 @@ mod x86_avx2;
 ))]
 mod aarch64_neon;
 
+/// WebAssembly has no runtime feature query, so SIMD availability is a
+/// property of how the module was built.
+#[cfg(all(
+    target_arch = "wasm32",
+    target_feature = "simd128",
+    not(base16ct_backend = "soft")
+))]
+mod wasm32_simd128;
+
 #[cfg(all(base16ct_backend = "x86-ssse3", not(target_feature = "ssse3")))]
 compile_error!(r#"base16ct_backend="x86-ssse3" requires the `ssse3` target feature"#);
 
@@ -111,13 +120,25 @@ pub(crate) fn encode(src: &[u8], dst: &mut [u8], upper: bool) {
     ))]
     return aarch64_neon::encode(src, dst, upper);
 
+    #[cfg(all(
+        target_arch = "wasm32",
+        target_feature = "simd128",
+        not(base16ct_backend = "soft")
+    ))]
+    return wasm32_simd128::encode(src, dst, upper);
+
     #[cfg_attr(
         all(
-            target_arch = "aarch64",
-            target_feature = "neon",
-            not(base16ct_backend = "soft")
+            not(base16ct_backend = "soft"),
+            any(
+                all(target_arch = "aarch64", target_feature = "neon"),
+                all(target_arch = "wasm32", target_feature = "simd128")
+            )
         ),
-        expect(unreachable_code, reason = "NEON returns unconditionally above")
+        expect(
+            unreachable_code,
+            reason = "a compile-time backend returns unconditionally above"
+        )
     )]
     soft::encode(src, dst, upper);
 }
@@ -166,14 +187,26 @@ pub(crate) fn decode<const CASE: Case>(src: &[u8], dst: &mut [u8]) -> Result<(),
     ))]
     return aarch64_neon::decode::<CASE>(src, dst);
 
+    #[cfg(all(
+        target_arch = "wasm32",
+        target_feature = "simd128",
+        not(base16ct_backend = "soft")
+    ))]
+    return wasm32_simd128::decode::<CASE>(src, dst);
+
     // `CASE` stays static here too: `soft`'s inner match folds to one path.
     #[cfg_attr(
         all(
-            target_arch = "aarch64",
-            target_feature = "neon",
-            not(base16ct_backend = "soft")
+            not(base16ct_backend = "soft"),
+            any(
+                all(target_arch = "aarch64", target_feature = "neon"),
+                all(target_arch = "wasm32", target_feature = "simd128")
+            )
         ),
-        expect(unreachable_code, reason = "NEON returns unconditionally above")
+        expect(
+            unreachable_code,
+            reason = "a compile-time backend returns unconditionally above"
+        )
     )]
     soft::decode::<CASE>(src, dst)
 }
