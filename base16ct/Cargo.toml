@@ -20,6 +20,11 @@ rust-version = "1.85"
 [features]
 alloc = []
 
+# Exposes backend internals for the constant-time harness in `ct-tests/`.
+# Carries no dependencies and enables no logic, so `--all-features` stays cheap
+# and buildable everywhere; the Valgrind requirement lives in that crate alone.
+ct-internals = []
+
 # Used only for runtime CPU feature detection on x86. `no_std`, MSRV 1.85, and
 # dependency-free on x86 itself.
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]

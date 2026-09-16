@@ -35,6 +35,13 @@ The lookup tables used by the SIMD backends are held in registers rather than
 memory, so they introduce no data-dependent memory access and the crate's
 "best effort" constant-time property is preserved.
 
+This is checked rather than asserted: `ct-tests/` runs the backends under
+Valgrind's memcheck with the inputs marked undefined, so any branch or address
+derived from input *contents* is reported. Note that memcheck tracks
+definedness through x86 vector registers but not through `aarch64` NEON
+registers, so the check is stronger on x86; see that crate's documentation for
+exactly what each architecture covers.
+
 A backend can be pinned at compile time with the `base16ct_backend`
 configuration flag:
 

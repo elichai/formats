@@ -1,0 +1,28 @@
+# Constant-time verification for base16ct, under Valgrind's memcheck.
+#
+# A separate crate, deliberately outside the workspace: building it requires
+# Valgrind headers and libclang, and confining that here keeps `base16ct`
+# itself buildable with `--all-features` anywhere, including docs.rs and the
+# workspace-wide clippy and doc jobs.
+[package]
+name = "base16ct-ct-tests"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Prevent this from interfering with workspaces, as `tls_codec/fuzz` does.
+# Building it needs Valgrind headers and libclang, and keeping it out of the
+# workspace keeps `base16ct` itself buildable with `--all-features` anywhere,
+# including docs.rs and the workspace-wide clippy and doc jobs.
+[workspace]
+
+[dependencies]
+base16ct = { path = "..", features = ["alloc", "ct-internals"] }
+crabgrind = "0.2"
+
+[target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
+cpufeatures = "0.3"
+
+# Release codegen is what ships, so that is what gets verified.
+[profile.release]
+debug = true

@@ -77,6 +77,10 @@ pub mod upper;
 
 /// Encoding and decoding backends.
 mod backends;
+/// Backend internals for the constant-time harness. Not a stable API.
+#[cfg(feature = "ct-internals")]
+#[doc(hidden)]
+pub mod ct_internals;
 /// Display formatter for hex.
 mod display;
 /// Error types.
