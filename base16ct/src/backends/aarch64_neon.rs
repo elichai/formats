@@ -97,7 +97,7 @@ unsafe fn encode_chunk(src: &[u8], dst: &mut [u8], offset: usize, lut: uint8x16_
 ///
 /// `dst.len()` must be exactly `src.len() * 2`.
 #[inline(always)]
-pub(super) fn encode_inner(src: &[u8], dst: &mut [u8], upper: bool) {
+pub(crate) fn encode_inner(src: &[u8], dst: &mut [u8], upper: bool) {
     debug_assert_eq!(dst.len(), src.len() * 2);
 
     let lut = hex_lut(upper);
@@ -157,7 +157,7 @@ fn decode_nibbles<const CASE: Case>(v: uint8x16_t) -> uint8x16_t {
 ///
 /// `src.len()` must be exactly `dst.len() * 2`.
 #[inline(always)]
-pub(super) fn decode_inner<const CASE: Case>(src: &[u8], dst: &mut [u8]) -> u8 {
+pub(crate) fn decode_inner<const CASE: Case>(src: &[u8], dst: &mut [u8]) -> u8 {
     const {
         assert!(CASE <= MIXED, "unknown Case");
     }
@@ -218,7 +218,7 @@ pub(super) fn decode_inner<const CASE: Case>(src: &[u8], dst: &mut [u8]) -> u8 {
 ///
 /// `dst.len()` must be exactly `src.len() * 2`.
 #[inline]
-pub(super) fn encode(src: &[u8], dst: &mut [u8], upper: bool) {
+pub(crate) fn encode(src: &[u8], dst: &mut [u8], upper: bool) {
     encode_inner(src, dst, upper);
 }
 
@@ -226,7 +226,7 @@ pub(super) fn encode(src: &[u8], dst: &mut [u8], upper: bool) {
 ///
 /// `src.len()` must be exactly `dst.len() * 2`.
 #[inline]
-pub(super) fn decode<const CASE: Case>(src: &[u8], dst: &mut [u8]) -> Result<(), Error> {
+pub(crate) fn decode<const CASE: Case>(src: &[u8], dst: &mut [u8]) -> Result<(), Error> {
     match decode_inner::<CASE>(src, dst) {
         0 => Ok(()),
         _ => Err(Error::InvalidEncoding),

@@ -32,7 +32,7 @@ pub(crate) mod soft;
     any(target_arch = "x86", target_arch = "x86_64"),
     not(base16ct_backend = "soft")
 ))]
-mod x86_ssse3;
+pub(crate) mod x86_ssse3;
 
 /// AVX2 is excluded when a lower tier is pinned.
 #[cfg(all(
@@ -40,7 +40,7 @@ mod x86_ssse3;
     not(base16ct_backend = "soft"),
     not(base16ct_backend = "x86-ssse3")
 ))]
-mod x86_avx2;
+pub(crate) mod x86_avx2;
 
 /// NEON is baseline on `aarch64`, so it is gated at compile time and needs no
 /// runtime detection.
@@ -49,7 +49,7 @@ mod x86_avx2;
     target_feature = "neon",
     not(base16ct_backend = "soft")
 ))]
-mod aarch64_neon;
+pub(crate) mod aarch64_neon;
 
 /// WebAssembly has no runtime feature query, so SIMD availability is a
 /// property of how the module was built.
@@ -58,7 +58,7 @@ mod aarch64_neon;
     target_feature = "simd128",
     not(base16ct_backend = "soft")
 ))]
-mod wasm32_simd128;
+pub(crate) mod wasm32_simd128;
 
 #[cfg(all(base16ct_backend = "x86-ssse3", not(target_feature = "ssse3")))]
 compile_error!(r#"base16ct_backend="x86-ssse3" requires the `ssse3` target feature"#);

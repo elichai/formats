@@ -169,6 +169,38 @@ jobs:
         env:
           RUSTFLAGS: "-Ctarget-feature=+${{ matrix.features }}"
 
+  # Verify the constant-time claim rather than arguing it. Inputs are marked
+  # undefined, so memcheck reports any branch or address derived from their
+  # contents; the only value unpoisoned is the error accumulator, which is
+  # already observable through the returned `Result`.
+  #
+  # Lives in its own crate outside the workspace, so that the Valgrind and
+  # libclang requirement stays confined to this job.
+  test-ct-valgrind:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner != '' && matrix.runner || 'ubuntu-latest' }}
+    defaults:
+      run:
+        working-directory: base16ct/ct-tests
+    env:
+      # Release build, so what is checked is the codegen that ships.
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --tool=memcheck --error-exitcode=1 --leak-check=no --errors-for-leak-kinds=none"
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --tool=memcheck --error-exitcode=1 --leak-check=no --errors-for-leak-kinds=none"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      # `crabgrind` binds the Valgrind client-request macros via bindgen.
+      - run: sudo apt-get update && sudo apt-get install -y valgrind libclang-dev clang
+      - run: cargo test --release --target ${{ matrix.target }}
+
   # Test WASM using `wasmtime`, with and without `simd128`, so both the SIMD
   # and the fallback path are exercised.
   test-wasm:

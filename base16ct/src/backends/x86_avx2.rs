@@ -52,7 +52,7 @@ unsafe fn decode_chunk_256(
 ///   `#[target_feature(enable = "avx2")]`).
 /// - `dst.len()` must be exactly `src.len() * 2`.
 #[inline(always)]
-pub(super) unsafe fn encode_inner(src: &[u8], dst: &mut [u8], upper: bool) {
+pub(crate) unsafe fn encode_inner(src: &[u8], dst: &mut [u8], upper: bool) {
     debug_assert_eq!(dst.len(), src.len() * 2);
 
     let lut = _mm256_broadcastsi128_si256(x86_ssse3::hex_lut_128(upper));
@@ -98,7 +98,7 @@ pub(super) unsafe fn encode_inner(src: &[u8], dst: &mut [u8], upper: bool) {
 ///   `#[target_feature(enable = "avx2")]`).
 /// - `src.len()` must be exactly `dst.len() * 2`.
 #[inline(always)]
-pub(super) unsafe fn decode_inner(src: &[u8], dst: &mut [u8], case: Case) -> i32 {
+pub(crate) unsafe fn decode_inner(src: &[u8], dst: &mut [u8], case: Case) -> i32 {
     debug_assert_eq!(src.len(), dst.len() * 2);
 
     let delta_check = _mm256_broadcastsi128_si256(x86_ssse3::delta_check_128(case));
@@ -148,7 +148,7 @@ pub(super) unsafe fn decode_inner(src: &[u8], dst: &mut [u8], case: Case) -> i32
 /// - The CPU must support AVX2.
 /// - `dst.len()` must be exactly `src.len() * 2`.
 #[target_feature(enable = "avx2")]
-pub(super) unsafe fn encode(src: &[u8], dst: &mut [u8], upper: bool) {
+pub(crate) unsafe fn encode(src: &[u8], dst: &mut [u8], upper: bool) {
     encode_inner(src, dst, upper)
 }
 
@@ -159,7 +159,7 @@ pub(super) unsafe fn encode(src: &[u8], dst: &mut [u8], upper: bool) {
 /// - The CPU must support AVX2.
 /// - `src.len()` must be exactly `dst.len() * 2`.
 #[target_feature(enable = "avx2")]
-pub(super) unsafe fn decode(src: &[u8], dst: &mut [u8], case: Case) -> Result<(), Error> {
+pub(crate) unsafe fn decode(src: &[u8], dst: &mut [u8], case: Case) -> Result<(), Error> {
     match decode_inner(src, dst, case) {
         0 => Ok(()),
         _ => Err(Error::InvalidEncoding),
