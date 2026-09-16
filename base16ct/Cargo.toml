@@ -20,6 +20,9 @@ rust-version = "1.85"
 [features]
 alloc = []
 
+[dev-dependencies]
+proptest = { version = "1.6", default-features = false, features = ["std"] }
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
