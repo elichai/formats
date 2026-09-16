@@ -18,6 +18,38 @@ Supports `no_std` environments and avoids heap allocations in the core API
 
 [Documentation][docs-link]
 
+## Backends
+
+On `x86`/`x86_64` the widest supported SIMD tier is selected at runtime via
+[`cpufeatures`], falling back to a portable implementation. No configuration is
+needed for this.
+
+The lookup tables used by the SIMD backends are held in registers rather than
+memory, so they introduce no data-dependent memory access and the crate's
+"best effort" constant-time property is preserved.
+
+A backend can be pinned at compile time with the `base16ct_backend`
+configuration flag:
+
+- `soft`: portable implementation only. Excludes the SIMD backends from the
+  build entirely.
+- `x86-ssse3`: SSSE3. Requires the `ssse3` target feature.
+- `x86-avx2`: AVX2. Requires the `avx2` target feature.
+
+Pinning a backend that requires an unavailable target feature is a compile
+error rather than a runtime fault. Set the flag through `RUSTFLAGS`:
+
+```sh
+RUSTFLAGS='--cfg base16ct_backend="soft"' cargo build
+RUSTFLAGS='-Ctarget-feature=+avx2 --cfg base16ct_backend="x86-avx2"' cargo build
+```
+
+or in `.cargo/config.toml`. Note this is a configuration flag rather than a
+Cargo feature, so that an unrelated crate in the dependency graph cannot change
+which backend you build.
+
+[`cpufeatures`]: https://docs.rs/cpufeatures
+
 ## Minimum Supported Rust Version (MSRV) Policy
 
 MSRV increases are not considered breaking changes and can happen in patch releases.

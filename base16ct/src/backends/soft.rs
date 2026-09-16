@@ -66,6 +66,26 @@ pub(crate) fn decode_inner<const CASE: Case>(src: &[u8], dst: &mut [u8]) -> u16 
     err
 }
 
+/// Runtime-`Case` entry point, for SIMD backends dispatching their own tail.
+///
+/// Keeps the `Case` match in one place rather than repeating it in every
+/// backend. `case` is not secret, so the branch has no timing implication.
+///
+/// Gated to the targets that actually have a SIMD backend, so it does not show
+/// up as dead code elsewhere.
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    not(base16ct_backend = "soft")
+))]
+#[inline(always)]
+pub(crate) fn decode_inner_dyn(src: &[u8], dst: &mut [u8], case: Case) -> u16 {
+    match case {
+        LOWER => decode_inner::<LOWER>(src, dst),
+        UPPER => decode_inner::<UPPER>(src, dst),
+        _ => decode_inner::<MIXED>(src, dst),
+    }
+}
+
 /// Decodes a single nibble, returning a value with the high byte set on error.
 ///
 /// `CASE` is a const parameter, so the `match` is resolved at compile time and

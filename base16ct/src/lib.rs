@@ -64,6 +64,10 @@
 #[macro_use]
 extern crate alloc;
 
+// Unit tests report skipped backends on stderr.
+#[cfg(test)]
+extern crate std;
+
 /// Function for decoding and encoding lower Base16 (hex)
 pub mod lower;
 /// Function for decoding mixed Base16 (hex)
