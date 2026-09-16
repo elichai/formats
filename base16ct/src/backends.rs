@@ -42,6 +42,15 @@ mod x86_ssse3;
 ))]
 mod x86_avx2;
 
+/// NEON is baseline on `aarch64`, so it is gated at compile time and needs no
+/// runtime detection.
+#[cfg(all(
+    target_arch = "aarch64",
+    target_feature = "neon",
+    not(base16ct_backend = "soft")
+))]
+mod aarch64_neon;
+
 #[cfg(all(base16ct_backend = "x86-ssse3", not(target_feature = "ssse3")))]
 compile_error!(r#"base16ct_backend="x86-ssse3" requires the `ssse3` target feature"#);
 
@@ -95,6 +104,21 @@ pub(crate) fn encode(src: &[u8], dst: &mut [u8], upper: bool) {
         }
     }
 
+    #[cfg(all(
+        target_arch = "aarch64",
+        target_feature = "neon",
+        not(base16ct_backend = "soft")
+    ))]
+    return aarch64_neon::encode(src, dst, upper);
+
+    #[cfg_attr(
+        all(
+            target_arch = "aarch64",
+            target_feature = "neon",
+            not(base16ct_backend = "soft")
+        ),
+        expect(unreachable_code, reason = "NEON returns unconditionally above")
+    )]
     soft::encode(src, dst, upper);
 }
 
@@ -133,7 +157,24 @@ pub(crate) fn decode<const CASE: Case>(src: &[u8], dst: &mut [u8]) -> Result<(),
         }
     }
 
-    // `CASE` stays static here: `soft`'s inner match folds to one path.
+    // `CASE` stays static for NEON: skipping the case fold is what makes a
+    // single-case decoder cheaper there, so erasing it would cost work.
+    #[cfg(all(
+        target_arch = "aarch64",
+        target_feature = "neon",
+        not(base16ct_backend = "soft")
+    ))]
+    return aarch64_neon::decode::<CASE>(src, dst);
+
+    // `CASE` stays static here too: `soft`'s inner match folds to one path.
+    #[cfg_attr(
+        all(
+            target_arch = "aarch64",
+            target_feature = "neon",
+            not(base16ct_backend = "soft")
+        ),
+        expect(unreachable_code, reason = "NEON returns unconditionally above")
+    )]
     soft::decode::<CASE>(src, dst)
 }
 
