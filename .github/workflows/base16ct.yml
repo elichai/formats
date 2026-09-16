@@ -28,7 +28,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.85.0 # MSRV
+          - 1.89.0 # MSRV
           - stable
         target:
           - thumbv7em-none-eabi
@@ -56,13 +56,13 @@ jobs:
         include:
           # `x86_64` Linux
           - target: x86_64-unknown-linux-gnu
-            rust: 1.85.0 # MSRV
+            rust: 1.89.0 # MSRV
           - target: x86_64-unknown-linux-gnu
             rust: stable
 
           # `x86` Linux (32-bit)
           - target: i686-unknown-linux-gnu
-            rust: 1.85.0 # MSRV
+            rust: 1.89.0 # MSRV
             deps: sudo apt update && sudo apt install gcc-multilib
           - target: i686-unknown-linux-gnu
             rust: stable
@@ -70,7 +70,7 @@ jobs:
 
           # `aarch64` Linux
           - target: aarch64-unknown-linux-gnu
-            rust: 1.85.0 # MSRV
+            rust: 1.89.0 # MSRV
             runner: ubuntu-24.04-arm
           - target: aarch64-unknown-linux-gnu
             rust: stable
@@ -155,9 +155,12 @@ jobs:
       MIRIFLAGS: "-Zmiri-symbolic-alignment-check -Zmiri-strict-provenance"
     strategy:
       matrix:
-        features:
-          - ssse3
-          - avx2
+        # Full flag strings rather than feature names, because each feature
+        # needs its own sign: `+a,b` does not enable `b`.
+        flags:
+          - "-Ctarget-feature=+ssse3"
+          - "-Ctarget-feature=+avx2"
+          - "-Ctarget-feature=+avx512bw,+avx512vbmi"
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
@@ -167,7 +170,35 @@ jobs:
       - run: cargo miri setup
       - run: cargo miri test --all-features --lib
         env:
-          RUSTFLAGS: "-Ctarget-feature=+${{ matrix.features }}"
+          RUSTFLAGS: ${{ matrix.flags }}
+
+  # AVX-512 has no guaranteed CI hardware, and the Miri legs skip the
+  # exhaustive table test as far too slow to interpret. Intel SDE emulates the
+  # instructions, so the full suite -- including that test -- actually runs.
+  test-x86-avx512-sde:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: x86_64-unknown-linux-gnu
+      - uses: RustCrypto/actions/intel-sde-install@master
+      # SDE has to be the test runner, since the host CPU cannot execute these
+      # instructions itself.
+      - name: write .cargo/config.toml
+        run: |
+          mkdir -p .cargo
+          echo '[target.x86_64-unknown-linux-gnu]' > .cargo/config.toml
+          echo 'runner = "sde64 -future --"' >> .cargo/config.toml
+      - run: cargo test --all-features --target x86_64-unknown-linux-gnu
+        env:
+          RUSTFLAGS: "-Dwarnings -Ctarget-feature=+avx512bw,+avx512vbmi"
+          RUSTDOCFLAGS: "-Dwarnings -Ctarget-feature=+avx512bw,+avx512vbmi"
+      - run: cargo test --all-features --target x86_64-unknown-linux-gnu
+        env:
+          RUSTFLAGS: '-Dwarnings -Ctarget-feature=+avx512bw,+avx512vbmi --cfg base16ct_backend="x86-avx512"'
+          RUSTDOCFLAGS: '-Dwarnings -Ctarget-feature=+avx512bw,+avx512vbmi --cfg base16ct_backend="x86-avx512"'
 
   # Verify the constant-time claim rather than arguing it. Inputs are marked
   # undefined, so memcheck reports any branch or address derived from their

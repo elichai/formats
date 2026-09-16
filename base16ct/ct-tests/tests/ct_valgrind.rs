@@ -318,6 +318,8 @@ mod x86 {
 
     cpufeatures::new!(has_ssse3, "ssse3");
     cpufeatures::new!(has_avx2, "avx2");
+    cpufeatures::new!(has_avx512bw, "avx512bw");
+    cpufeatures::new!(has_avx512vbmi, "avx512bw", "avx512vbmi");
 
     #[test]
     fn ssse3_is_constant_time() {
@@ -340,6 +342,44 @@ mod x86 {
         for case in [ct::LOWER, ct::MIXED] {
             decode_invalid_is_constant_time(
                 |src, dst| unsafe { x86::ssse3_decode_inner(src, dst, case) },
+                case,
+            );
+        }
+    }
+
+    #[test]
+    fn avx512_is_constant_time() {
+        // Decode needs only AVX-512BW; encode also needs VBMI.
+        if !(cfg!(target_feature = "avx512bw") || has_avx512bw::init().get()) {
+            eprintln!("SKIPPED: avx512bw unavailable on this host");
+            return;
+        }
+
+        if cfg!(all(
+            target_feature = "avx512bw",
+            target_feature = "avx512vbmi"
+        )) || has_avx512vbmi::init().get()
+        {
+            // SAFETY: AVX-512BW and VBMI were just established.
+            encode_is_constant_time(|src, dst, upper| unsafe {
+                x86::avx512_encode(src, dst, upper)
+            });
+        } else {
+            eprintln!("SKIPPED (encode only): avx512vbmi unavailable on this host");
+        }
+
+        // SAFETY: AVX-512BW was just established, and the drivers always pass
+        // correctly sized buffers.
+        for case in [ct::LOWER, ct::UPPER, ct::MIXED] {
+            decode_is_constant_time(
+                |src, dst| unsafe { x86::avx512_decode_inner(src, dst, case) },
+                case,
+            );
+        }
+
+        for case in [ct::LOWER, ct::MIXED] {
+            decode_invalid_is_constant_time(
+                |src, dst| unsafe { x86::avx512_decode_inner(src, dst, case) },
                 case,
             );
         }

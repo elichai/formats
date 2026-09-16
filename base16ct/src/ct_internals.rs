@@ -106,7 +106,7 @@ pub mod simd128 {
 #[allow(unsafe_code)]
 pub mod x86 {
     use super::Case;
-    use crate::backends::{x86_avx2, x86_ssse3};
+    use crate::backends::{x86_avx2, x86_avx512, x86_ssse3};
 
     /// Encodes via the SSSE3 backend.
     ///
@@ -150,5 +150,30 @@ pub mod x86 {
     pub unsafe fn avx2_decode_inner(src: &[u8], dst: &mut [u8], case: Case) -> i32 {
         // SAFETY: forwarded to the caller.
         unsafe { x86_avx2::decode_inner(src, dst, case) }
+    }
+
+    /// Encodes via the AVX-512 backend.
+    ///
+    /// # Safety
+    ///
+    /// The CPU must support AVX-512BW and AVX-512VBMI, and `dst.len()` must be
+    /// `src.len() * 2`.
+    #[inline(always)]
+    pub unsafe fn avx512_encode(src: &[u8], dst: &mut [u8], upper: bool) {
+        // SAFETY: forwarded to the caller.
+        unsafe { x86_avx512::encode(src, dst, upper) }
+    }
+
+    /// Decodes via the AVX-512 backend, returning the raw error accumulator.
+    ///
+    /// Needs only AVX-512BW, unlike [`avx512_encode`].
+    ///
+    /// # Safety
+    ///
+    /// The CPU must support AVX-512BW, and `src.len()` must be `dst.len() * 2`.
+    #[inline(always)]
+    pub unsafe fn avx512_decode_inner(src: &[u8], dst: &mut [u8], case: Case) -> u64 {
+        // SAFETY: forwarded to the caller.
+        unsafe { x86_avx512::decode_inner(src, dst, case) }
     }
 }
