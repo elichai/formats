@@ -60,14 +60,36 @@ pub(crate) mod aarch64_neon;
 ))]
 pub(crate) mod wasm32_simd128;
 
+/// AVX-512 is excluded when a lower x86 tier is pinned.
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    not(base16ct_backend = "soft"),
+    not(base16ct_backend = "x86-ssse3"),
+    not(base16ct_backend = "x86-avx2")
+))]
+pub(crate) mod x86_avx512;
+
 #[cfg(all(base16ct_backend = "x86-ssse3", not(target_feature = "ssse3")))]
 compile_error!(r#"base16ct_backend="x86-ssse3" requires the `ssse3` target feature"#);
 
 #[cfg(all(base16ct_backend = "x86-avx2", not(target_feature = "avx2")))]
 compile_error!(r#"base16ct_backend="x86-avx2" requires the `avx2` target feature"#);
 
+// Encode needs VBMI as well as BW, so pinning this tier requires both.
 #[cfg(all(
-    any(base16ct_backend = "x86-ssse3", base16ct_backend = "x86-avx2"),
+    base16ct_backend = "x86-avx512",
+    not(all(target_feature = "avx512bw", target_feature = "avx512vbmi"))
+))]
+compile_error!(
+    r#"base16ct_backend="x86-avx512" requires the `avx512bw` and `avx512vbmi` target features"#
+);
+
+#[cfg(all(
+    any(
+        base16ct_backend = "x86-ssse3",
+        base16ct_backend = "x86-avx2",
+        base16ct_backend = "x86-avx512"
+    ),
     not(any(target_arch = "x86", target_arch = "x86_64"))
 ))]
 compile_error!("the pinned base16ct backend is only available on x86 targets");
@@ -78,6 +100,22 @@ compile_error!("the pinned base16ct backend is only available on x86 targets");
     not(base16ct_backend = "x86-ssse3")
 ))]
 cpufeatures::new!(avx2_cpuid, "avx2");
+
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    not(base16ct_backend = "soft"),
+    not(base16ct_backend = "x86-ssse3"),
+    not(base16ct_backend = "x86-avx2")
+))]
+cpufeatures::new!(avx512bw_cpuid, "avx512bw");
+
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    not(base16ct_backend = "soft"),
+    not(base16ct_backend = "x86-ssse3"),
+    not(base16ct_backend = "x86-avx2")
+))]
+cpufeatures::new!(avx512vbmi_cpuid, "avx512bw", "avx512vbmi");
 
 #[cfg(all(
     any(target_arch = "x86", target_arch = "x86_64"),
@@ -99,6 +137,17 @@ pub(crate) fn encode(src: &[u8], dst: &mut [u8], upper: bool) {
         not(base16ct_backend = "soft")
     ))]
     {
+        // Encode needs VBMI, not just BW, so this tier is gated on both.
+        #[cfg(all(
+            not(base16ct_backend = "x86-ssse3"),
+            not(base16ct_backend = "x86-avx2")
+        ))]
+        if avx512vbmi_cpuid::get() {
+            // SAFETY: AVX-512BW and VBMI support was just confirmed, and the
+            // length precondition is asserted above.
+            return unsafe { x86_avx512::encode(src, dst, upper) };
+        }
+
         #[cfg(not(base16ct_backend = "x86-ssse3"))]
         if avx2_cpuid::get() {
             // SAFETY: AVX2 support was just confirmed, and the length
@@ -164,6 +213,17 @@ pub(crate) fn decode<const CASE: Case>(src: &[u8], dst: &mut [u8]) -> Result<(),
         // `CASE` is erased to a runtime argument here: the x86 tiers select
         // their `pshufb` tables before the loop, so one compiled copy serves
         // all three alphabets instead of three.
+        // Decode needs only BW, so it engages on CPUs where encode cannot.
+        #[cfg(all(
+            not(base16ct_backend = "x86-ssse3"),
+            not(base16ct_backend = "x86-avx2")
+        ))]
+        if avx512bw_cpuid::get() {
+            // SAFETY: AVX-512BW support was just confirmed, and the length
+            // precondition is asserted above.
+            return unsafe { x86_avx512::decode(src, dst, CASE) };
+        }
+
         #[cfg(not(base16ct_backend = "x86-ssse3"))]
         if avx2_cpuid::get() {
             // SAFETY: AVX2 support was just confirmed, and the length

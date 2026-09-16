@@ -15,7 +15,7 @@ categories = ["cryptography", "encoding", "no-std", "parser-implementations"]
 keywords = ["crypto", "hex", "hexadecimal"]
 readme = "README.md"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.89"
 
 [features]
 alloc = []
@@ -37,7 +37,7 @@ proptest = { version = "1.6", default-features = false, features = ["std"] }
 level = "warn"
 check-cfg = [
     'cfg(docsrs)',
-    'cfg(base16ct_backend, values("soft", "x86-ssse3", "x86-avx2"))',
+    'cfg(base16ct_backend, values("soft", "x86-ssse3", "x86-avx2", "x86-avx512"))',
 ]
 
 [package.metadata.docs.rs]

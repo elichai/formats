@@ -43,7 +43,7 @@ fn naive_decode_nibble(byte: u8, case: Case) -> Option<u8> {
 
 /// Straightforward decoder, used only as an oracle.
 fn naive_decode(src: &[u8], case: Case) -> Option<Vec<u8>> {
-    if src.len() % 2 != 0 {
+    if !src.len().is_multiple_of(2) {
         return None;
     }
 

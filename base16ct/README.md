@@ -49,6 +49,10 @@ configuration flag:
   build entirely, on every architecture.
 - `x86-ssse3`: SSSE3. Requires the `ssse3` target feature.
 - `x86-avx2`: AVX2. Requires the `avx2` target feature.
+- `x86-avx512`: AVX-512. Requires the `avx512bw` and `avx512vbmi` target
+  features. Decoding needs only `avx512bw`, but encoding uses `vpermi2b`, so
+  pinning the tier requires both; under autodetection the two are detected
+  separately and decode will use AVX-512 on CPUs where encode cannot.
 
 There are no values for NEON or `simd128`: those architectures have a single
 tier each, so `soft` against the default is already the only choice available.
@@ -98,7 +102,7 @@ dual licensed as above, without any additional terms or conditions.
 [build-image]: https://github.com/RustCrypto/formats/actions/workflows/base16ct.yml/badge.svg
 [build-link]: https://github.com/RustCrypto/formats/actions/workflows/base16ct.yml
 [license-image]: https://img.shields.io/badge/license-Apache2.0/MIT-blue.svg
-[rustc-image]: https://img.shields.io/badge/rustc-1.85+-blue.svg
+[rustc-image]: https://img.shields.io/badge/rustc-1.89+-blue.svg
 [chat-image]: https://img.shields.io/badge/zulip-join_chat-blue.svg
 [chat-link]: https://rustcrypto.zulipchat.com/#narrow/stream/300570-formats
 
