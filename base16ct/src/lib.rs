@@ -9,6 +9,7 @@
     clippy::unwrap_used,
     missing_docs,
     rust_2018_idioms,
+    unsafe_code,
     unused_lifetimes,
     unused_qualifications
 )]
@@ -70,6 +71,8 @@ pub mod mixed;
 /// Function for decoding and encoding upper Base16 (hex)
 pub mod upper;
 
+/// Encoding and decoding backends.
+mod backends;
 /// Display formatter for hex.
 mod display;
 /// Error types.
@@ -99,24 +102,22 @@ pub fn encoded_len(bytes: &[u8]) -> usize {
     bytes.len() * 2
 }
 
-fn decode_inner<'a>(
-    src: &[u8],
-    dst: &'a mut [u8],
-    decode_nibble: impl Fn(u8) -> u16,
-) -> Result<&'a [u8]> {
+/// Decode `src` into `dst`, accepting only the alphabet selected by `CASE`.
+fn decode_inner<'a, const CASE: backends::Case>(src: &[u8], dst: &'a mut [u8]) -> Result<&'a [u8]> {
     let dst = dst
         .get_mut(..decoded_len(src)?)
         .ok_or(Error::InvalidLength)?;
 
-    let mut err: u16 = 0;
-    for (src, dst) in src.chunks_exact(2).zip(dst.iter_mut()) {
-        let byte = (decode_nibble(src[0]) << 4) | decode_nibble(src[1]);
-        err |= byte >> 8;
-        *dst = byte as u8;
-    }
+    backends::decode::<CASE>(src, dst)?;
+    Ok(dst)
+}
 
-    match err {
-        0 => Ok(dst),
-        _ => Err(Error::InvalidEncoding),
-    }
+/// Encode `src` into `dst`, using the upper-case alphabet if `upper` is set.
+fn encode_inner<'a>(src: &[u8], dst: &'a mut [u8], upper: bool) -> Result<&'a [u8]> {
+    let dst = dst
+        .get_mut(..encoded_len(src))
+        .ok_or(Error::InvalidLength)?;
+
+    backends::encode(src, dst, upper);
+    Ok(dst)
 }

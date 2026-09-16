@@ -87,6 +87,26 @@ jobs:
       - run: cargo hack test --target ${{ matrix.target }} --feature-powerset
       - run: cargo test --target ${{ matrix.target }} --all-features --release
 
+  # Interpreting the backends under Miri is how the AVX-512 paths will be
+  # covered, since no CI runner is guaranteed to have that hardware.
+  test-miri:
+    runs-on: ubuntu-latest
+    env:
+      MIRIFLAGS: "-Zmiri-symbolic-alignment-check -Zmiri-strict-provenance"
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: miri
+      - run: cargo miri setup --target ${{ matrix.target }}
+      - run: cargo miri test --target ${{ matrix.target }} --all-features --lib
+
   # Test WASM using `wasmtime`, with and without `simd128`, so both the SIMD
   # and the fallback path are exercised.
   test-wasm:
