@@ -161,3 +161,127 @@ fn hex_display_lower() {
         assert_eq!(hex.as_bytes(), vector.lower_hex);
     }
 }
+
+// The tests below cover cases the original suite left untested: `InvalidEncoding`
+// was never exercised at all, and neither was the case-strictness of the split
+// `lower`/`upper` decoders.
+
+use base16ct::Error;
+
+/// Kept example-based rather than moved to `proptests.rs`: these are the bytes
+/// immediately outside each valid range (`0/`, `0:`, `0@`, `0G`, `` 0` ``,
+/// `0g`), which random generation samples only rarely. The general "any
+/// non-hex byte is rejected" property lives in `proptests.rs`.
+#[test]
+fn reject_non_hex_characters() {
+    const NON_HEX: &[&[u8]] = &[
+        b"zz",
+        b"0g",
+        b"g0",
+        b"\x00\x00",
+        b"\xff\xff",
+        b"  ",
+        b"0/",
+        b"0:",
+        b"0@",
+        b"0G",
+        b"0`",
+        b"0g",
+        b"00zz",
+        b"zz00",
+    ];
+
+    let mut buf = [0u8; 8];
+
+    for input in NON_HEX {
+        assert_eq!(
+            base16ct::lower::decode(input, &mut buf),
+            Err(Error::InvalidEncoding)
+        );
+        assert_eq!(
+            base16ct::upper::decode(input, &mut buf),
+            Err(Error::InvalidEncoding)
+        );
+        assert_eq!(
+            base16ct::mixed::decode(input, &mut buf),
+            Err(Error::InvalidEncoding)
+        );
+    }
+}
+
+#[test]
+fn encode_rejects_undersized_dst() {
+    let mut buf = [0u8; 3];
+    assert_eq!(
+        base16ct::lower::encode(b"\x01\x02", &mut buf),
+        Err(Error::InvalidLength)
+    );
+    assert_eq!(
+        base16ct::upper::encode(b"\x01\x02", &mut buf),
+        Err(Error::InvalidLength)
+    );
+    // Exactly-sized destination is accepted.
+    let mut exact = [0u8; 4];
+    assert_eq!(
+        base16ct::lower::encode(b"\x01\x02", &mut exact),
+        Ok(&b"0102"[..])
+    );
+}
+
+#[test]
+fn decode_rejects_undersized_dst() {
+    let mut buf = [0u8; 1];
+    assert_eq!(
+        base16ct::lower::decode(b"0102", &mut buf),
+        Err(Error::InvalidLength)
+    );
+    assert_eq!(
+        base16ct::upper::decode(b"0102", &mut buf),
+        Err(Error::InvalidLength)
+    );
+    assert_eq!(
+        base16ct::mixed::decode(b"0102", &mut buf),
+        Err(Error::InvalidLength)
+    );
+}
+
+#[test]
+fn decoded_len_rejects_odd_lengths() {
+    assert_eq!(base16ct::decoded_len(b""), Ok(0));
+    assert_eq!(base16ct::decoded_len(b"00"), Ok(1));
+    assert_eq!(base16ct::decoded_len(b"0000"), Ok(2));
+    assert_eq!(base16ct::decoded_len(b"0"), Err(Error::InvalidLength));
+    assert_eq!(base16ct::decoded_len(b"000"), Err(Error::InvalidLength));
+}
+
+#[test]
+fn encoded_len_doubles() {
+    assert_eq!(base16ct::encoded_len(b""), 0);
+    assert_eq!(base16ct::encoded_len(b"\x00"), 2);
+    assert_eq!(base16ct::encoded_len(b"\x00\x01\x02"), 6);
+}
+
+/// An invalid byte must be rejected wherever it appears, not just early on.
+#[test]
+fn reject_invalid_byte_at_every_position() {
+    let raw = [0x12u8, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0];
+    let mut hex = [0u8; 16];
+    let mut buf = [0u8; 8];
+
+    base16ct::lower::encode(&raw, &mut hex)
+        .unwrap_or_else(|e| panic!("exactly-sized destination rejected: {e}"));
+
+    for pos in 0..hex.len() {
+        let saved = hex[pos];
+        hex[pos] = b'G';
+        assert_eq!(
+            base16ct::lower::decode(hex, &mut buf),
+            Err(Error::InvalidEncoding),
+            "invalid byte at position {pos} accepted"
+        );
+        hex[pos] = saved;
+    }
+
+    // Restoring every byte leaves the input valid again.
+    assert_eq!(base16ct::lower::decode(hex, &mut buf), Ok(&raw[..]));
+}

@@ -39,7 +39,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           targets: ${{ matrix.target }}
-      - uses: RustCrypto/actions/cargo-hack-install@master
+      - uses: taiki-e/install-action@cargo-hack
       - run: cargo hack build --target ${{ matrix.target }} --feature-powerset
 
   minimal-versions:
@@ -48,16 +48,67 @@ jobs:
       working-directory: ${{ github.workflow }}
 
   test:
-    runs-on: ubuntu-latest
     strategy:
+      # Otherwise one target's failure cancels the others, hiding whether they
+      # would have passed.
+      fail-fast: false
       matrix:
-        rust:
-          - 1.85.0 # MSRV
-          - stable
+        include:
+          # `x86_64` Linux
+          - target: x86_64-unknown-linux-gnu
+            rust: 1.85.0 # MSRV
+          - target: x86_64-unknown-linux-gnu
+            rust: stable
+
+          # `x86` Linux (32-bit)
+          - target: i686-unknown-linux-gnu
+            rust: 1.85.0 # MSRV
+            deps: sudo apt update && sudo apt install gcc-multilib
+          - target: i686-unknown-linux-gnu
+            rust: stable
+            deps: sudo apt update && sudo apt install gcc-multilib
+
+          # `aarch64` Linux
+          - target: aarch64-unknown-linux-gnu
+            rust: 1.85.0 # MSRV
+            runner: ubuntu-24.04-arm
+          - target: aarch64-unknown-linux-gnu
+            rust: stable
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner != '' && matrix.runner || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
-      - uses: RustCrypto/actions/cargo-hack-install@master
-      - run: cargo hack test --feature-powerset
+          targets: ${{ matrix.target }}
+      - run: ${{ matrix.deps }}
+      - uses: taiki-e/install-action@cargo-hack
+      - run: cargo hack test --target ${{ matrix.target }} --feature-powerset
+      - run: cargo test --target ${{ matrix.target }} --all-features --release
+
+  # Test WASM using `wasmtime`, with and without `simd128`, so both the SIMD
+  # and the fallback path are exercised.
+  test-wasm:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TARGET_WASM32_WASIP1_RUNNER: "wasmtime"
+    strategy:
+      matrix:
+        flags:
+          - "-Dwarnings -Ctarget-feature=-simd128"
+          - "-Dwarnings -Ctarget-feature=+simd128"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: bytecodealliance/actions/wasmtime/setup@v1
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: wasm32-wasip1
+      - uses: taiki-e/install-action@cargo-hack
+      - run: cargo hack test --target wasm32-wasip1 --feature-powerset
+        env:
+          RUSTFLAGS: ${{ matrix.flags }}
+          # `RUSTDOCFLAGS` does not inherit `RUSTFLAGS`, so doctests would
+          # otherwise silently run without the target feature under test.
+          RUSTDOCFLAGS: ${{ matrix.flags }}
